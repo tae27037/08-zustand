@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   dehydrate,
   HydrationBoundary,
@@ -12,6 +13,29 @@ type Props = {
     slug: string[];
   }>;
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const filter = slug?.[0] ?? "all";
+
+  return {
+    title: `Notes: ${filter} | NoteHub`,
+    description: `Browse notes filtered by ${filter} in NoteHub.`,
+    openGraph: {
+      title: `Notes: ${filter} | NoteHub`,
+      description: `Browse notes filtered by ${filter} in NoteHub.`,
+      url: `https://your-vercel-url.vercel.app/notes/filter/${filter}`,
+      images: [
+        {
+          url: "https://ac.goit.global/fullstack/react/notehub-og-meta.jpg",
+          width: 1200,
+          height: 630,
+          alt: "Filtered notes page",
+        },
+      ],
+    },
+  };
+}
 
 export default async function FilterNotesPage({ params }: Props) {
   const { slug } = await params;

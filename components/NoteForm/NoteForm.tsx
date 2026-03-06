@@ -1,127 +1,119 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { FormEvent, ChangeEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Formik, Form, Field, ErrorMessage, type FormikHelpers } from "formik";
-import * as Yup from "yup";
+
+import { createNote } from "@/lib/api";
+import { initialDraft, useNoteStore } from "@/lib/store/noteStore";
 
 import css from "./NoteForm.module.css";
-import { createNote } from "@/lib/api";
-import type { CreateNotePayload, NoteTag } from "@/types/note";
 
-interface NoteFormProps {
-  onClose: () => void;
-}
-
-type NoteFormValues = CreateNotePayload;
-
-const TAG_OPTIONS: NoteTag[] = [
-  "Todo",
-  "Work",
-  "Personal",
-  "Meeting",
-  "Shopping",
-];
-
-const validationSchema = Yup.object({
-  title: Yup.string()
-    .trim()
-    .min(3, "Title must be at least 3 characters")
-    .required("Title is required"),
-  content: Yup.string()
-    .trim()
-    .max(500, "Content must be at most 500 characters")
-    .notRequired(),
-  tag: Yup.mixed<NoteTag>()
-    .oneOf(TAG_OPTIONS, "Invalid tag")
-    .required("Tag is required"),
-});
-
-export default function NoteForm({ onClose }: NoteFormProps) {
+export default function NoteForm() {
+  const router = useRouter();
   const queryClient = useQueryClient();
 
+  const draft = useNoteStore((state) => state.draft);
+  const setDraft = useNoteStore((state) => state.setDraft);
+  const clearDraft = useNoteStore((state) => state.clearDraft);
+
+  const [form, setForm] = useState(draft ?? initialDraft);
+
   const mutation = useMutation({
-    mutationFn: (payload: CreateNotePayload) => createNote(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
-      onClose();
+    mutationFn: createNote,
+    onSuccess: async () => {
+      clearDraft();
+      await queryClient.invalidateQueries({ queryKey: ["notes"] });
+      router.back();
     },
   });
 
-  const initialValues: NoteFormValues = {
-    title: "",
-    content: "",
-    tag: "Todo",
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+
+    const nextForm = {
+      ...form,
+      [name]: value,
+    };
+
+    setForm(nextForm);
+    setDraft({ [name]: value });
   };
 
-  const handleSubmit = async (
-    values: NoteFormValues,
-    helpers: FormikHelpers<NoteFormValues>,
-  ) => {
-    try {
-      await mutation.mutateAsync(values);
-      helpers.resetForm();
-    } catch {
-      // Ошибку запроса отображаем общим сообщением (валидация — через Yup/ErrorMessage)
-      // Можно улучшить, если у вас есть формат ошибок от API
-    }
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    mutation.mutate({
+      title: form.title,
+      content: form.content,
+      tag: form.tag,
+    });
+  };
+
+  const handleCancel = () => {
+    router.back();
   };
 
   return (
-    <Formik
-      initialValues={initialValues}
-      validationSchema={validationSchema}
-      onSubmit={handleSubmit}
-    >
-      {({ isSubmitting }) => (
-        <Form className={css.form}>
-          <label className={css.label}>
-            Title
-            <Field className={css.input} name="title" type="text" />
-            <ErrorMessage className={css.error} name="title" component="p" />
-          </label>
+    <form className={css.form} onSubmit={handleSubmit}>
+      <label className={css.label}>
+        Title
+        <input
+          className={css.input}
+          type="text"
+          name="title"
+          value={form.title}
+          onChange={handleChange}
+          required
+        />
+      </label>
 
-          <label className={css.label}>
-            Content
-            <Field className={css.textarea} name="content" as="textarea" />
-            <ErrorMessage className={css.error} name="content" component="p" />
-          </label>
+      <label className={css.label}>
+        Content
+        <textarea
+          className={css.textarea}
+          name="content"
+          value={form.content}
+          onChange={handleChange}
+          required
+        />
+      </label>
 
-          <label className={css.label}>
-            Tag
-            <Field className={css.select} name="tag" as="select">
-              {TAG_OPTIONS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </Field>
-            <ErrorMessage className={css.error} name="tag" component="p" />
-          </label>
+      <label className={css.label}>
+        Tag
+        <select
+          className={css.select}
+          name="tag"
+          value={form.tag}
+          onChange={handleChange}
+        >
+          <option value="Todo">Todo</option>
+          <option value="Work">Work</option>
+          <option value="Personal">Personal</option>
+          <option value="Meeting">Meeting</option>
+          <option value="Shopping">Shopping</option>
+        </select>
+      </label>
 
-          {mutation.isError && (
-            <p className={css.error}>Something went wrong.</p>
-          )}
+      <div className={css.actions}>
+        <button
+          className={css.submitButton}
+          type="submit"
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? "Creating..." : "Create"}
+        </button>
 
-          <div className={css.actions}>
-            <button
-              className={css.button}
-              type="submit"
-              disabled={isSubmitting || mutation.isPending}
-            >
-              {mutation.isPending ? "Creating..." : "Create note"}
-            </button>
-
-            <button
-              className={css.cancel}
-              type="button"
-              onClick={onClose}
-              disabled={mutation.isPending}
-            >
-              Cancel
-            </button>
-          </div>
-        </Form>
-      )}
-    </Formik>
+        <button
+          className={css.cancelButton}
+          type="button"
+          onClick={handleCancel}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

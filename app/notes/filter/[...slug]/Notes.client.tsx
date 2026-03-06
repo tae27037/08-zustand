@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,8 +10,6 @@ import type { Note } from "@/types/note";
 import NoteList from "@/components/NoteList/NoteList";
 import SearchBox from "@/components/SearchBox/SearchBox";
 import Pagination from "@/components/Pagination/Pagination";
-import Modal from "@/components/Modal/Modal";
-import NoteForm from "@/components/NoteForm/NoteForm";
 
 import css from "./page.module.css";
 
@@ -22,7 +21,6 @@ export default function NotesClient({ tag }: Props) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -52,9 +50,6 @@ export default function NotesClient({ tag }: Props) {
     setPage(newPage);
   };
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
-
   const notes: Note[] = data?.notes ?? [];
   const totalPages = data?.totalPages ?? 0;
 
@@ -62,9 +57,10 @@ export default function NotesClient({ tag }: Props) {
     <div className={css.wrapper}>
       <div className={css.toolbar}>
         <SearchBox value={search} onChange={handleSearchChange} />
-        <button type="button" className={css.button} onClick={openModal}>
+
+        <Link href="/notes/action/create" className={css.button}>
           Create note +
-        </button>
+        </Link>
       </div>
 
       {isLoading && <p>Loading...</p>}
@@ -82,12 +78,6 @@ export default function NotesClient({ tag }: Props) {
           totalPages={totalPages}
           onPageChange={handlePageChange}
         />
-      )}
-
-      {isModalOpen && (
-        <Modal onClose={closeModal}>
-          <NoteForm onClose={closeModal} />
-        </Modal>
       )}
     </div>
   );
